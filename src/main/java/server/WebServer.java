@@ -1,81 +1,74 @@
 package server;
 
-import com.sun.net.httpserver.HttpServer;
+import io.javalin.Javalin;
 
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 
 public class WebServer {
-    public static void main(String[] args) throws Exception {
 
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+    public static void main(String[] args) {
 
-        server.createContext("/", exchange -> {
+        Javalin app = Javalin.create();
 
-            Path htmlPath = Path.of("web/index.html");
-            String response = Files.readString(htmlPath);
+        app.get("/", ctx -> {
 
-            exchange.sendResponseHeaders(200, response.getBytes().length);
+            InputStream is =
+                    WebServer.class
+                            .getClassLoader()
+                            .getResourceAsStream(
+                                    "web/index.html"
+                            );
 
-            OutputStream os = exchange.getResponseBody();
-            os.write(response.getBytes());
-            os.close();
-        });
+            if (is == null) {
+                ctx.status(404);
+                ctx.result("index.html not found");
+                return;
+            }
 
-        server.createContext("/upload", exchange -> {
+            ctx.contentType("text/html");
 
-            System.out.println(exchange.getRequestMethod());
-
-            String response = "POST received";
-
-            exchange.sendResponseHeaders(
-                    200,
-                    response.getBytes().length
+            ctx.result(
+                    new String(
+                            is.readAllBytes()
+                    )
             );
-            InputStream is = exchange.getRequestBody();
-            byte[] data = is.readAllBytes();
-            String body = new String(data);
-            int filenameStart =
-                    body.indexOf("filename=\"") + 10;
-
-            int filenameEnd =
-                    body.indexOf("\"", filenameStart);
-
-            String filename =
-                    body.substring(
-                            filenameStart,
-                            filenameEnd
-                    );
-
-            System.out.println(filename);
-            int fileStart =
-                    body.indexOf("\r\n\r\n") + 4;
-            String boundary =
-                    body.substring(
-                            0,
-                            body.indexOf("\r\n")
-                    );
-
-            int fileEnd =
-                    body.lastIndexOf(boundary) - 2;
-            byte[] fileBytes =
-                    Arrays.copyOfRange(
-                            data,
-                            fileStart,
-                            fileEnd
-                    );
-            Path output =
-                    Path.of("uploads", filename);
-
-            Files.write(output, fileBytes);
-            exchange.close();
         });
-        server.start();
+        app.post("/upload", ctx -> {
 
-        System.out.println("Server started");
+            var file =
+                    ctx.uploadedFile("file");
+
+            if (file == null) {
+                ctx.status(400);
+                ctx.result("No file selected");
+                return;
+            }
+
+            Files.createDirectories(
+                    Path.of("uploads")
+            );
+
+            Path destination =
+                    Path.of(
+                            "uploads",
+                            file.filename()
+                    );
+
+            Files.copy(
+                    file.content(),
+                    destination
+            );
+
+            System.out.println(
+                    "Saved: " + destination
+            );
+
+            ctx.result(
+                    "Upload successful"
+            );
+        });
+        app.start(8080);
     }
 }
