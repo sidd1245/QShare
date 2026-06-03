@@ -13,6 +13,7 @@ import javafx.stage.Stage;
 import network.NetworkUtil;
 import network.QRGenerator;
 import server.WebServer;
+import javafx.scene.image.Image;
 
 import java.awt.Desktop;
 import java.awt.image.BufferedImage;
@@ -87,7 +88,7 @@ public class MainApp extends Application {
                 new Scene(root, 450, 500);
 
         stage.setTitle("QShare");
-
+        stage.getIcons().add(new Image(getClass().getResourceAsStream("/icons/app.png")));
         stage.setScene(scene);
 
         stage.show();
