@@ -2,78 +2,102 @@ package server;
 
 import io.javalin.Javalin;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class WebServer {
+    private static  Javalin app;
+    private static String formatSize(long bytes) {
 
-    public static void main(String[] args) {
+        if (bytes < 1024)
+            return bytes + " B";
 
-        Javalin app = Javalin.create();
+        if (bytes < 1024 * 1024)
+            return String.format(
+                    "%.2f KB",
+                    bytes / 1024.0
+            );
+
+        if (bytes < 1024L * 1024L * 1024L)
+            return String.format(
+                    "%.2f MB",
+                    bytes / (1024.0 * 1024.0)
+            );
+
+        return String.format(
+                "%.2f GB",
+                bytes / (1024.0 * 1024.0 * 1024.0)
+        );
+    }
+public static void startserver(){
+
+        app = Javalin.create();
 
         app.get("/", ctx -> {
 
-            InputStream is =
-                    WebServer.class
-                            .getClassLoader()
-                            .getResourceAsStream(
-                                    "web/index.html"
-                            );
-
-            if (is == null) {
-                ctx.status(404);
-                ctx.result("index.html not found");
-                return;
-            }
-
-            ctx.contentType("text/html");
-
-            ctx.result(
-                    new String(
-                            is.readAllBytes()
-                    )
-            );
-        });
-        app.post("/upload", ctx -> {
-
-            var file =
-                    ctx.uploadedFiles("file");
-
-            if (file.isEmpty()) {
-                ctx.status(400);
-                ctx.result("No file selected");
-                return;
-            }
-
-            Files.createDirectories(
-                    Path.of("uploads")
-            );
-            List<String> uploadedNames = new ArrayList<>();
-            for (var File : file) {
-                Path destination =
-                        Path.of(
-                                "uploads",
-                                File.filename()
+        InputStream is =
+                WebServer.class
+                        .getClassLoader()
+                        .getResourceAsStream(
+                                "web/index.html"
                         );
 
-                Files.copy(
-                        File.content(),
-                        destination
-                );
+        if (is == null) {
+            ctx.status(404);
+            ctx.result("index.html not found");
+            return;
+        }
 
-                System.out.println(
-                        "Saved: " + File.filename()
-                );
-            }
+        ctx.contentType("text/html");
 
-            StringBuilder html = new StringBuilder();
+        ctx.result(
+                new String(
+                        is.readAllBytes()
+                )
+        );
+    });
+        app.post("/upload", ctx -> {
 
-            html.append("""
+        var file =
+                ctx.uploadedFiles("file");
+
+        if (file.isEmpty()) {
+            ctx.status(400);
+            ctx.result("No file selected");
+            return;
+        }
+
+        Files.createDirectories(
+                Path.of("uploads")
+        );
+        List<String> uploadedNames = new ArrayList<>();
+        for (var File : file) {
+            Path destination =
+                    Path.of(
+                            "uploads",
+                            File.filename()
+                    );
+
+            Files.copy(
+                    File.content(),
+                    destination
+            );
+
+            System.out.println(
+                    "Saved: " + File.filename()
+            );
+        }
+
+        StringBuilder html = new StringBuilder();
+
+        html.append("""
                     <html>
                     <head>
                     <title>Upload Successful</title>
@@ -83,13 +107,13 @@ public class WebServer {
                     <ul>
                     """);
 
-            for (String name : uploadedNames) {
-                html.append("<li>")
-                        .append(name)
-                        .append("</li>");
-            }
+        for (String name : uploadedNames) {
+            html.append("<li>")
+                    .append(name)
+                    .append("</li>");
+        }
 
-            html.append("""
+        html.append("""
                     </ul>
                     
                     <a href="/">Upload More Files</a>
@@ -100,18 +124,18 @@ public class WebServer {
                     </html>
                     """);
 
-            ctx.contentType("text/html");
-            ctx.result(html.toString());
-        });
+        ctx.contentType("text/html");
+        ctx.result(html.toString());
+    });
         app.get("/files", ctx -> {
 
-            Path uploadDir = Path.of("uploads");
+        Path uploadDir = Path.of("uploads");
 
-            Files.createDirectories(uploadDir);
+        Files.createDirectories(uploadDir);
 
-            StringBuilder html = new StringBuilder();
+        StringBuilder html = new StringBuilder();
 
-            html.append("""
+        html.append("""
                     <html>
                     <head>
                     <title>Uploaded Files</title>
@@ -121,12 +145,19 @@ public class WebServer {
                     <ul>
                     """);
 
-            try (var stream = Files.list(uploadDir)) {
+        try (var stream = Files.list(uploadDir)) {
 
-                stream.forEach(file -> {
+            stream.forEach(file -> {
 
-                    String fileName =
-                            file.getFileName().toString();
+                String fileName =
+                        file.getFileName().toString();
+                try {
+                    long size = Files.size(file);
+                    String displaySize =
+                            formatSize(size);
+                    FileTime time =
+                            Files.getLastModifiedTime(file);
+
                     String encodedName =
                             URLEncoder.encode(
                                     fileName,
@@ -134,17 +165,25 @@ public class WebServer {
                             );
 
                     html.append("""
-                                    <li>
-                                    <a href="/download/
-                                    """)
+                                        <li>
+                                        <a href="/download/
+                                        """)
                             .append(encodedName)
                             .append("\">")
                             .append(fileName)
-                            .append("</a> </li> ");
-                });
-            }
+                            .append("</a> (")
+                            .append(displaySize)
+                            .append(")")
+                            .append("   ")
+                            .append(time)
+                            .append("</li>");
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
 
-            html.append("""
+        html.append("""
                     </ul>
                     
                     <a href="/">Back</a>
@@ -153,35 +192,41 @@ public class WebServer {
                     </html>
                     """);
 
-            ctx.contentType("text/html");
-            ctx.result(html.toString());
-        });
+        ctx.contentType("text/html");
+        ctx.result(html.toString());
+    });
         app.get("/download/{filename}", ctx -> {
 
-            String filename =
-                    ctx.pathParam("filename");
+        String filename =
+                ctx.pathParam("filename");
 
-            Path file =
-                    Path.of(
-                            "uploads",
-                            filename
-                    );
+        Path file =
+                Path.of(
+                        "uploads",
+                        filename
+                );
 
-            if (!Files.exists(file)) {
-                ctx.status(404);
-                ctx.result("File not found");
-                return;
-            }
+        if (!Files.exists(file)) {
+            ctx.status(404);
+            ctx.result("File not found");
+            return;
+        }
 
-            ctx.header(
-                    "Content-Disposition",
-                    "attachment; filename=\"" + filename + "\""
-            );
+        ctx.header(
+                "Content-Disposition",
+                "attachment; filename=\"" + filename + "\""
+        );
 
-            ctx.result(
-                    Files.newInputStream(file)
-            );
-        });
+        ctx.result(
+                Files.newInputStream(file)
+        );
+    });
+
         app.start(8080);
+    }
+    public static void stopserver(){
+        if(app != null){
+            app.stop();
+        }
     }
 }
