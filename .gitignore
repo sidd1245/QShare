@@ -37,6 +37,10 @@ dependency-reduced-pom.xml
 dist/
 build/
 
+# Installer artifacts
+*.exe
+*.msi
+
 # Runtime data
 uploads/
 *.log

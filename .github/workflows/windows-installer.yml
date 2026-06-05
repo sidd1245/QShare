@@ -1,0 +1,104 @@
+name: Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          choco install wixtoolset --version=3.14.1 -y --no-progress
+
+          $wixBin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+
+          if (Test-Path $wixBin) {
+            $wixBin >> $env:GITHUB_PATH
+          }
+
+      - name: Build shaded JAR
+        run: mvn -B clean package
+
+      - name: Resolve app version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $version = "1.0.${{ github.run_number }}"
+          }
+
+          "APP_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Prepare jpackage input
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target\file_Share-1.0-SNAPSHOT.jar dist\file_Share-1.0-SNAPSHOT.jar -Force
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          jpackage `
+            --input dist `
+            --dest target\installer `
+            --name QShare `
+            --app-version $env:APP_VERSION `
+            --win-upgrade-uuid 0d3e75fc-71c5-4b87-9d2e-19f81a9f1e44 `
+            --main-jar file_Share-1.0-SNAPSHOT.jar `
+            --main-class ui.Launcher `
+            --type exe `
+            --icon src\main\resources\icons\app.ico `
+            --win-menu `
+            --win-shortcut
+
+          $installer = "target\installer\QShare-$env:APP_VERSION.exe"
+
+          if (!(Test-Path $installer)) {
+            Get-ChildItem target\installer
+            throw "Installer was not created at $installer"
+          }
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QShare-Windows-Installer
+          path: target/installer/QShare-${{ env.APP_VERSION }}.exe
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = "target\installer\QShare-$env:APP_VERSION.exe"
+
+          gh release view "${{ github.ref_name }}"
+
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "${{ github.ref_name }}" $installer --clobber
+          } else {
+            gh release create "${{ github.ref_name }}" `
+              $installer `
+              --title "QShare $env:APP_VERSION" `
+              --generate-notes
+          }
