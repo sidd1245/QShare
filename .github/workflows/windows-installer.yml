@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -27,7 +27,7 @@ jobs:
       - name: Install WiX Toolset
         shell: pwsh
         run: |
-          choco install wixtoolset -y --no-progress --force
+          choco install wixtoolset --version=3.14.1 -y --no-progress
 
           $wixBin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
 
