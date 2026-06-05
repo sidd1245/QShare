@@ -1,5 +1,5 @@
 package server;
-
+import util.AppPaths;
 import io.javalin.Javalin;
 
 import java.io.IOException;
@@ -14,6 +14,7 @@ import java.util.List;
 
 public class WebServer {
     private static  Javalin app;
+
     private static String formatSize(long bytes) {
 
         if (bytes < 1024)
@@ -36,8 +37,18 @@ public class WebServer {
                 bytes / (1024.0 * 1024.0 * 1024.0)
         );
     }
+
+    private static String encodePathSegment(String value) {
+        return URLEncoder.encode(
+                value,
+                StandardCharsets.UTF_8
+        ).replace("+", "%20");
+    }
+
 public static void startserver(){
         try {
+            AppPaths.ensureUploadDir();
+
             app = Javalin.create();
 
             app.get("/", ctx -> {
@@ -74,24 +85,25 @@ public static void startserver(){
                     return;
                 }
 
-                Files.createDirectories(
-                        Path.of("uploads")
-                );
+                AppPaths.ensureUploadDir();
                 List<String> uploadedNames = new ArrayList<>();
-                for (var File : file) {
+                for (var uploadedFile : file) {
                     Path destination =
-                            Path.of(
-                                    "uploads",
-                                    File.filename()
+                            AppPaths.UPLOAD_DIR.resolve(
+                                    uploadedFile.filename()
                             );
 
                     Files.copy(
-                            File.content(),
+                            uploadedFile.content(),
                             destination
                     );
 
+                    uploadedNames.add(
+                            uploadedFile.filename()
+                    );
+
                     System.out.println(
-                            "Saved: " + File.filename()
+                            "Saved: " + uploadedFile.filename()
                     );
                 }
 
@@ -129,9 +141,9 @@ public static void startserver(){
             });
             app.get("/files", ctx -> {
 
-                Path uploadDir = Path.of("uploads");
+                Path uploadDir = AppPaths.UPLOAD_DIR;
 
-                Files.createDirectories(uploadDir);
+                AppPaths.ensureUploadDir();
 
                 StringBuilder html = new StringBuilder();
 
@@ -159,15 +171,9 @@ public static void startserver(){
                                     Files.getLastModifiedTime(file);
 
                             String encodedName =
-                                    URLEncoder.encode(
-                                            fileName,
-                                            StandardCharsets.UTF_8
-                                    );
+                                    encodePathSegment(fileName);
 
-                            html.append("""
-                                            <li>
-                                            <a href="/download/
-                                            """)
+                            html.append("<li><a href=\"/download/")
                                     .append(encodedName)
                                     .append("\">")
                                     .append(fileName)
@@ -201,8 +207,7 @@ public static void startserver(){
                         ctx.pathParam("filename");
 
                 Path file =
-                        Path.of(
-                                "uploads",
+                        AppPaths.UPLOAD_DIR.resolve(
                                 filename
                         );
 
@@ -227,13 +232,10 @@ public static void startserver(){
         catch (Exception e) {
             e.printStackTrace();
 
-            try {
-                Files.writeString(
-                        Path.of("crash.log"),
-                        e.toString()
-                );
-            }
-            catch (Exception ignored) {}
+            AppPaths.writeException(
+                    AppPaths.CRASH_LOG,
+                    e
+            );
 
             throw new RuntimeException(e);
         }

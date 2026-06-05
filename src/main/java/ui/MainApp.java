@@ -14,11 +14,10 @@ import network.NetworkUtil;
 import network.QRGenerator;
 import server.WebServer;
 import javafx.scene.image.Image;
-
+import util.AppPaths;
 import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 public class MainApp extends Application {
 
@@ -54,12 +53,10 @@ public class MainApp extends Application {
 
             try {
 
-                Files.createDirectories(
-                        Path.of("uploads")
-                );
+                AppPaths.ensureUploadDir();
 
                 Desktop.getDesktop().open(
-                        Path.of("uploads").toFile()
+                        AppPaths.UPLOAD_DIR.toFile()
                 );
 
             } catch (Exception ex) {
@@ -93,9 +90,27 @@ public class MainApp extends Application {
     }
 
     private void refresh() {
+        AppPaths.writeLog(
+                AppPaths.REFRESH_LOG,
+                "refresh entered\n"
+        );
+
         try {
 
-            String ip = NetworkUtil.getLocalIp();
+            String ip = "127.0.0.1";
+
+            try {
+                String detectedIp = NetworkUtil.getLocalIp();
+
+                if (detectedIp != null && !detectedIp.isBlank()) {
+                    ip = detectedIp;
+                }
+            } catch (Exception e) {
+                AppPaths.writeException(
+                        AppPaths.ERROR_LOG,
+                        e
+                );
+            }
 
             System.out.println("IP = " + ip);
 
@@ -116,30 +131,24 @@ public class MainApp extends Application {
                     )
             );
 
-            Files.createDirectories(
-                    Path.of(
-                            System.getProperty("user.home"),
-                            "QShare",
-                            "uploads"
-                    )
-            );
+            AppPaths.ensureUploadDir();
 
-            long count =
-                    Files.list(
-                            Path.of("uploads")
-                    ).count();
-
-            countLabel.setText(
-                    "Uploaded Files: " + count
-            );
+            try (var stream = Files.list(AppPaths.UPLOAD_DIR)) {
+                long count = stream.count();
+                countLabel.setText(
+                        "Uploaded Files: " + count
+                );
+            }
 
         } catch (Exception e) {
-
-            ipLabel.setText(
-                    "Network Error"
+            AppPaths.writeException(
+                    AppPaths.ERROR_LOG,
+                    e
             );
 
-            e.printStackTrace();
+            ipLabel.setText(
+                    "Refresh Error: " + e.getClass().getSimpleName()
+            );
         }
     }
 
