@@ -27,7 +27,7 @@ jobs:
       - name: Install WiX Toolset
         shell: pwsh
         run: |
-          choco install wixtoolset --version=3.14.1 -y --no-progress
+          choco install wixtoolset -y --no-progress --force
 
           $wixBin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
 
