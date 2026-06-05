@@ -1,5 +1,12 @@
 # QShare
 
+[![Java](https://img.shields.io/badge/Java-21-orange)](#requirements)
+[![JavaFX](https://img.shields.io/badge/JavaFX-21.0.2-blue)](https://openjfx.io/)
+[![Javalin](https://img.shields.io/badge/Javalin-6.7.0-brightgreen)](https://javalin.io/)
+[![Maven](https://img.shields.io/badge/build-Maven-red)](https://maven.apache.org/)
+[![Windows Installer](https://img.shields.io/badge/installer-jpackage-success)](#build-a-windows-installer-locally)
+[![Releases](https://img.shields.io/badge/download-GitHub%20Releases-black)](#github-releases)
+
 QShare is a desktop file sharing app built with JavaFX and Javalin. It starts a local web server, shows a QR code for the server URL, and lets devices on the same network upload and download files through a browser.
 
 ## Features
