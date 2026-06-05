@@ -37,192 +37,206 @@ public class WebServer {
         );
     }
 public static void startserver(){
+        try {
+            app = Javalin.create();
 
-        app = Javalin.create();
+            app.get("/", ctx -> {
 
-        app.get("/", ctx -> {
+                InputStream is =
+                        WebServer.class
+                                .getClassLoader()
+                                .getResourceAsStream(
+                                        "web/index.html"
+                                );
 
-        InputStream is =
-                WebServer.class
-                        .getClassLoader()
-                        .getResourceAsStream(
-                                "web/index.html"
-                        );
+                if (is == null) {
+                    ctx.status(404);
+                    ctx.result("index.html not found");
+                    return;
+                }
 
-        if (is == null) {
-            ctx.status(404);
-            ctx.result("index.html not found");
-            return;
-        }
+                ctx.contentType("text/html");
 
-        ctx.contentType("text/html");
+                ctx.result(
+                        new String(
+                                is.readAllBytes()
+                        )
+                );
+            });
+            app.post("/upload", ctx -> {
 
-        ctx.result(
-                new String(
-                        is.readAllBytes()
-                )
-        );
-    });
-        app.post("/upload", ctx -> {
+                var file =
+                        ctx.uploadedFiles("file");
 
-        var file =
-                ctx.uploadedFiles("file");
+                if (file.isEmpty()) {
+                    ctx.status(400);
+                    ctx.result("No file selected");
+                    return;
+                }
 
-        if (file.isEmpty()) {
-            ctx.status(400);
-            ctx.result("No file selected");
-            return;
-        }
-
-        Files.createDirectories(
-                Path.of("uploads")
-        );
-        List<String> uploadedNames = new ArrayList<>();
-        for (var File : file) {
-            Path destination =
-                    Path.of(
-                            "uploads",
-                            File.filename()
-                    );
-
-            Files.copy(
-                    File.content(),
-                    destination
-            );
-
-            System.out.println(
-                    "Saved: " + File.filename()
-            );
-        }
-
-        StringBuilder html = new StringBuilder();
-
-        html.append("""
-                    <html>
-                    <head>
-                    <title>Upload Successful</title>
-                    </head>
-                    <body>
-                    <h1>Upload Successful</h1>
-                    <ul>
-                    """);
-
-        for (String name : uploadedNames) {
-            html.append("<li>")
-                    .append(name)
-                    .append("</li>");
-        }
-
-        html.append("""
-                    </ul>
-                    
-                    <a href="/">Upload More Files</a>
-                    <br><br>
-                    <a href="/files">View Uploaded Files</a>
-                    
-                    </body>
-                    </html>
-                    """);
-
-        ctx.contentType("text/html");
-        ctx.result(html.toString());
-    });
-        app.get("/files", ctx -> {
-
-        Path uploadDir = Path.of("uploads");
-
-        Files.createDirectories(uploadDir);
-
-        StringBuilder html = new StringBuilder();
-
-        html.append("""
-                    <html>
-                    <head>
-                    <title>Uploaded Files</title>
-                    </head>
-                    <body>
-                    <h1>Uploaded Files</h1>
-                    <ul>
-                    """);
-
-        try (var stream = Files.list(uploadDir)) {
-
-            stream.forEach(file -> {
-
-                String fileName =
-                        file.getFileName().toString();
-                try {
-                    long size = Files.size(file);
-                    String displaySize =
-                            formatSize(size);
-                    FileTime time =
-                            Files.getLastModifiedTime(file);
-
-                    String encodedName =
-                            URLEncoder.encode(
-                                    fileName,
-                                    StandardCharsets.UTF_8
+                Files.createDirectories(
+                        Path.of("uploads")
+                );
+                List<String> uploadedNames = new ArrayList<>();
+                for (var File : file) {
+                    Path destination =
+                            Path.of(
+                                    "uploads",
+                                    File.filename()
                             );
 
-                    html.append("""
-                                        <li>
-                                        <a href="/download/
-                                        """)
-                            .append(encodedName)
-                            .append("\">")
-                            .append(fileName)
-                            .append("</a> (")
-                            .append(displaySize)
-                            .append(")")
-                            .append("   ")
-                            .append(time)
-                            .append("</li>");
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    Files.copy(
+                            File.content(),
+                            destination
+                    );
+
+                    System.out.println(
+                            "Saved: " + File.filename()
+                    );
                 }
+
+                StringBuilder html = new StringBuilder();
+
+                html.append("""
+                        <html>
+                        <head>
+                        <title>Upload Successful</title>
+                        </head>
+                        <body>
+                        <h1>Upload Successful</h1>
+                        <ul>
+                        """);
+
+                for (String name : uploadedNames) {
+                    html.append("<li>")
+                            .append(name)
+                            .append("</li>");
+                }
+
+                html.append("""
+                        </ul>
+                        
+                        <a href="/">Upload More Files</a>
+                        <br><br>
+                        <a href="/files">View Uploaded Files</a>
+                        
+                        </body>
+                        </html>
+                        """);
+
+                ctx.contentType("text/html");
+                ctx.result(html.toString());
             });
-        }
+            app.get("/files", ctx -> {
 
-        html.append("""
-                    </ul>
-                    
-                    <a href="/">Back</a>
-                    
-                    </body>
-                    </html>
-                    """);
+                Path uploadDir = Path.of("uploads");
 
-        ctx.contentType("text/html");
-        ctx.result(html.toString());
-    });
-        app.get("/download/{filename}", ctx -> {
+                Files.createDirectories(uploadDir);
 
-        String filename =
-                ctx.pathParam("filename");
+                StringBuilder html = new StringBuilder();
 
-        Path file =
-                Path.of(
-                        "uploads",
-                        filename
+                html.append("""
+                        <html>
+                        <head>
+                        <title>Uploaded Files</title>
+                        </head>
+                        <body>
+                        <h1>Uploaded Files</h1>
+                        <ul>
+                        """);
+
+                try (var stream = Files.list(uploadDir)) {
+
+                    stream.forEach(file -> {
+
+                        String fileName =
+                                file.getFileName().toString();
+                        try {
+                            long size = Files.size(file);
+                            String displaySize =
+                                    formatSize(size);
+                            FileTime time =
+                                    Files.getLastModifiedTime(file);
+
+                            String encodedName =
+                                    URLEncoder.encode(
+                                            fileName,
+                                            StandardCharsets.UTF_8
+                                    );
+
+                            html.append("""
+                                            <li>
+                                            <a href="/download/
+                                            """)
+                                    .append(encodedName)
+                                    .append("\">")
+                                    .append(fileName)
+                                    .append("</a> (")
+                                    .append(displaySize)
+                                    .append(")")
+                                    .append("   ")
+                                    .append(time)
+                                    .append("</li>");
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                }
+
+                html.append("""
+                        </ul>
+                        
+                        <a href="/">Back</a>
+                        
+                        </body>
+                        </html>
+                        """);
+
+                ctx.contentType("text/html");
+                ctx.result(html.toString());
+            });
+            app.get("/download/{filename}", ctx -> {
+
+                String filename =
+                        ctx.pathParam("filename");
+
+                Path file =
+                        Path.of(
+                                "uploads",
+                                filename
+                        );
+
+                if (!Files.exists(file)) {
+                    ctx.status(404);
+                    ctx.result("File not found");
+                    return;
+                }
+
+                ctx.header(
+                        "Content-Disposition",
+                        "attachment; filename=\"" + filename + "\""
                 );
 
-        if (!Files.exists(file)) {
-            ctx.status(404);
-            ctx.result("File not found");
-            return;
+                ctx.result(
+                        Files.newInputStream(file)
+                );
+            });
+
+            app.start(8080);
         }
+        catch (Exception e) {
+            e.printStackTrace();
 
-        ctx.header(
-                "Content-Disposition",
-                "attachment; filename=\"" + filename + "\""
-        );
+            try {
+                Files.writeString(
+                        Path.of("crash.log"),
+                        e.toString()
+                );
+            }
+            catch (Exception ignored) {}
 
-        ctx.result(
-                Files.newInputStream(file)
-        );
-    });
-
-        app.start(8080);
+            throw new RuntimeException(e);
+        }
     }
     public static void stopserver(){
         if(app != null){

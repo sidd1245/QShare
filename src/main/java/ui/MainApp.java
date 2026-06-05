@@ -81,9 +81,7 @@ public class MainApp extends Application {
                 refreshButton,
                 uploadsButton
         );
-
         refresh();
-
         Scene scene =
                 new Scene(root, 450, 500);
 
@@ -95,11 +93,11 @@ public class MainApp extends Application {
     }
 
     private void refresh() {
-
         try {
 
-            String ip =
-                    NetworkUtil.getLocalIp();
+            String ip = NetworkUtil.getLocalIp();
+
+            System.out.println("IP = " + ip);
 
             String url =
                     "http://" + ip + ":8080";
@@ -119,7 +117,11 @@ public class MainApp extends Application {
             );
 
             Files.createDirectories(
-                    Path.of("uploads")
+                    Path.of(
+                            System.getProperty("user.home"),
+                            "QShare",
+                            "uploads"
+                    )
             );
 
             long count =
