@@ -27,14 +27,11 @@ jobs:
       - name: Install WiX Toolset
         shell: pwsh
         run: |
-         dotnet tool install --global wix
-         wix extension add WixToolset.UI.wixext
-
           $wixBin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
-
-          if (Test-Path $wixBin) {
-            $wixBin >> $env:GITHUB_PATH
+          if (!(Test-Path $wixBin)) {
+            choco install wixtoolset -y --no-progress
           }
+          $wixBin >> $env:GITHUB_PATH
 
       - name: Build shaded JAR
         run: mvn -B clean package
